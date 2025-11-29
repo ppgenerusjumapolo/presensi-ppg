@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Presensi RFID PPG Jumapolo</title>
+
+<style>
+    body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #f4f9ff;
+        margin: 0;
+        padding: 0;
+    }
+
+    .header {
+        width: 100%;
+        padding: 15px 30px;
+        box-sizing: border-box;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #ffffff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        position: fixed;
+        top: 0;
+        z-index: 10;
+    }
+
+    .header .date {
+        font-size: 18px;
+        font-weight: 600;
+        color: #003366;
+    }
+
+    .header .logo img {
+        height: 70px;
+    }
+
+    .header .clock {
+        font-size: 22px;
+        font-weight: bold;
+        color: #003366;
+    }
+
+    .container {
+        margin-top: 150px;
+        text-align: center;
+    }
+
+    h2 {
+        font-size: 32px;
+        color: #003366;
+        margin-bottom: 10px;
+    }
+
+    .info-box {
+        margin: 35px auto;
+        width: 450px;
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        text-align: center;
+    }
+
+    .info-box img {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 12px;
+        background: #e6eef5;
+        padding: 5px;
+    }
+
+    .name {
+        font-size: 26px;
+        font-weight: 700;
+        color: #003366;
+        margin-top: 15px;
+    }
+
+    #status {
+        margin-top: 20px;
+        font-size: 22px;
+        font-weight: 700;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <div class="date" id="dateNow"></div>
+    <div class="logo">
+        <img src="https://drive.google.com/thumbnail?id=1s_O1KdFuxT7GJYzzqp6CztxpaVrHuGKG">
+    </div>
+    <div class="clock" id="clockNow">00:00:00</div>
+</div>
+
+<div class="container">
+    <h2>SISTEM PRESENSI PPG JUMAPOLO</h2>
+    <p>AMAL SHOLIH TAP ID CARD PADA READER !!</p>
+
+    <div class="info-box">
+        <img id="foto" src="https://via.placeholder.com/150">
+        <div class="name" id="nama">Nama Akan Ditampilkan Disini</div>
+        <div class="detail" id="dapukan"></div>
+        <div class="detail" id="kelompok"></div>
+    </div>
+
+    <div id="status"></div>
+</div>
+
+<script>
+function updateClock() {
+    document.getElementById("clockNow").textContent =
+        new Date().toLocaleTimeString("id-ID");
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+document.getElementById("dateNow").textContent =
+    new Date().toLocaleDateString("id-ID", {
+        weekday:"long", year:"numeric", month:"long", day:"numeric"
+    });
+
+let buffer = "";
+let lastTime = Date.now();
+
+const WEBAPP_URL =
+"https://script.google.com/macros/s/AKfycbygd8XhvBFEADIe2AMAL0cMdpf_bpP82HFjJf0YukxNFxLA1W5mBgTa36JVdgIcuRVnxQ/exec";
+
+document.addEventListener("keydown", function(event) {
+    const now = Date.now();
+    if (now - lastTime > 50) buffer = "";
+    lastTime = now;
+
+    if (event.key === "Enter") {
+        sendRFID(buffer.trim());
+        buffer = "";
+    } else {
+        buffer += event.key;
+    }
+});
+
+function sendRFID(code) {
+    if (!code) return;
+
+    fetch(WEBAPP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rfid: code })
+    })
+    .then(r => {
+        if (!r.ok) throw "json_fail";
+        return r.json();
+    })
+    .then(showResult)
+    .catch(() => {
+
+        fetch(WEBAPP_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: "rfid=" + encodeURIComponent(code)
+        })
+        .then(r => {
+            if (!r.ok) throw "form_fail";
+            return r.json();
+        })
+        .then(showResult)
+        .catch(() => {
+
+            fetch(WEBAPP_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: code
+            })
+            .then(r => r.json())
+            .then(showResult)
+            .catch(err => {
+                document.getElementById("status").innerHTML = "Gagal mengirim data!";
+                document.getElementById("status").style.color = "red";
+                console.error(err);
+            });
+
+        });
+    });
+}
+
+function showResult(data) {
+    document.getElementById("status").innerHTML = "Status: " + data.status;
+    document.getElementById("status").style.color =
+        data.status === "success" ? "green" : "red";
+
+    document.getElementById("nama").innerText = data.nama || "-";
+    document.getElementById("dapukan").innerText = data.dapukan || "";
+    document.getElementById("kelompok").innerText = data.kelompok || "";
+
+    document.getElementById("foto").src =
+        (data.foto && data.foto.length > 3)
+        ? data.foto
+        : "https://via.placeholder.com/150";
+}
+</script>
+
+</body>
+</html>
